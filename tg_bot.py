@@ -44,7 +44,7 @@ async def send_animal(message: types.Message):
 async def get_duck_url():
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get("https://random-d.uk/api/random") as r:
+            async with session.get("https://random-d.uk/api/v2/random") as r:
                 return (await r.json()).get("url"), False
     except:
         return None, False
