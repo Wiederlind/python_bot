@@ -12,80 +12,59 @@ CAT_API_KEY = getenv("CAT_API_KEY")
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-
-def get_main_keyboard():
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [
-                KeyboardButton(text="🦆"),
-                KeyboardButton(text="🐈"),
-            ]
-        ],
-        resize_keyboard=True,
-    )
+keyboard = ReplyKeyboardMarkup(
+    keyboard=[[KeyboardButton(text="🦆"), KeyboardButton(text="🐈")]],
+    resize_keyboard=True,
+)
 
 
 @dp.message(CommandStart())
 async def start(message: types.Message):
-    await message.answer("Выбери кнопку ниже:", reply_markup=get_main_keyboard())
+    await message.answer("Выбери кнопку ниже:", reply_markup=keyboard)
 
 
-@dp.message(F.text == "🦆")
-async def send_duck(message: types.Message):
-    url = await get_duck_url()
+@dp.message(F.text.in_(["🦆", "🐈"]))
+async def send_animal(message: types.Message):
+    is_duck = message.text == "🦆"
+    url, is_gif = await (get_duck_url() if is_duck else get_cat_url())
+
     if url:
-        if url.endswith(".gif"):
-            await message.answer_animation(
-                animation=url, reply_markup=get_main_keyboard()
-            )
-        else:
-            await message.answer_photo(photo=url, reply_markup=get_main_keyboard())
+        send = (
+            message.answer_animation
+            if is_gif or url.endswith(".gif")
+            else message.answer_photo
+        )
+        await send(url, reply_markup=keyboard)
     else:
-        await message.answer("Не удалось получить 🦆", reply_markup=get_main_keyboard())
-
-
-@dp.message(F.text == "🐈")
-async def send_cat(message: types.Message):
-    url, is_gif = await get_cat_url()
-    if url:
-        if is_gif:
-            await message.answer_animation(
-                animation=url, reply_markup=get_main_keyboard()
-            )
-        else:
-            await message.answer_photo(photo=url, reply_markup=get_main_keyboard())
-    else:
-        await message.answer("Не удалось получить 🐈", reply_markup=get_main_keyboard())
+        await message.answer(
+            f"Не удалось получить {message.text}", reply_markup=keyboard
+        )
 
 
 async def get_duck_url():
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get("https://random-d.uk/api/random") as response:
-                data = await response.json()
-                return data.get("url")
+            async with session.get("https://random-d.uk/api/random") as r:
+                return (await r.json()).get("url"), False
     except:
-        return None
+        return None, False
 
 
 async def get_cat_url():
     try:
-        cat_type = random.choice(["image/gif", "image/jpeg"])
-        headers = {}
-        if CAT_API_KEY:
-            headers["x-api-key"] = CAT_API_KEY
-
+        d_type = random.choice(["image/gif", "image/jpeg"])
+        headers = {"x-api-key": CAT_API_KEY} if CAT_API_KEY else {}
         async with aiohttp.ClientSession() as session:
             async with session.get(
-                f"https://api.thecatapi.com/v1/images/search?mime_types={cat_type}",
+                f"https://api.thecatapi.com/v1/images/search?mime_types={d_type}",
                 headers=headers,
-            ) as response:
-                data = await response.json()
-                if data and "url" in data[0]:
-                    return data[0]["url"], cat_type == "image/gif"
+            ) as r:
+                data = await r.json()
+                return (
+                    (data[0]["url"], d_type == "image/gif") if data else (None, False)
+                )
     except:
         return None, False
-    return None, False
 
 
 async def main():
