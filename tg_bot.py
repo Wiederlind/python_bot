@@ -41,6 +41,11 @@ async def send_animal(message: types.Message):
         )
 
 
+@dp.message()
+async def fallback_handler(message: types.Message):
+    await message.answer("Нажми на одну из кнопок ниже")
+
+
 async def get_duck_url():
     try:
         async with aiohttp.ClientSession() as session:
